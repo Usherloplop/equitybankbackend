@@ -41,7 +41,7 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
             doc
                 .fontSize(22)
                 .font('Helvetica-Bold')
-                .text('TRANSFER REQUEST RECEIPT', {
+                .text('TRANSFER RECEIPT', {
                     align: 'center'
                 });
 
@@ -50,7 +50,7 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
             doc
                 .fontSize(10)
                 .font('Helvetica')
-                .text('Transfer Request Document', {
+                .text('Transfer Document', {
                     align: 'center'
                 });
 
@@ -210,7 +210,7 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
                 .fontSize(9)
                 .font('Helvetica')
                 .text(
-                    'This document confirms receipt of a transfer request only. It is not proof of completed payment or settlement. Confirm the transaction directly with the authorized financial institution.',
+                    'This document confirms receipt of a transfer.',
                     {
                         align: 'center',
                         width: 490
@@ -222,7 +222,7 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
             // Footer
             doc
                 .fontSize(8)
-                .text('Transfer Request Receipt', {
+                .text('Transfer Receipt', {
                     align: 'center'
                 });
 
