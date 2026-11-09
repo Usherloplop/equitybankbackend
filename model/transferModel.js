@@ -1,4 +1,3 @@
-
 import { randomUUID } from 'crypto';
 
 class Transfer {
@@ -11,6 +10,7 @@ class Transfer {
         bankIdentifier,
         bankName,
         recipientEmail,
+        recipientPhone,
         status,
         softcodeMessage = ''
     }) {
@@ -21,15 +21,17 @@ class Transfer {
 
         this.recipientName = recipientName;
 
-        this.recipientAccount = recipientAccount;
+        this.recipientAccount = recipientAccount || '';
 
-        this.bankIdentifierType = bankIdentifierType;
+        this.bankIdentifierType = bankIdentifierType || '';
 
-        this.bankIdentifier = bankIdentifier;
+        this.bankIdentifier = bankIdentifier || '';
 
-        this.bankName = bankName;
+        this.bankName = bankName || '';
 
-        this.recipientEmail = recipientEmail;
+        this.recipientEmail = recipientEmail || '';
+
+        this.recipientPhone = recipientPhone || '';
 
         this.status = status || 'Processing';
 
@@ -65,7 +67,9 @@ class Transfer {
 
     async sendReceipt() {
 
-        console.log(`Sending receipt to ${this.recipientEmail}`);
+        if (this.recipientEmail) {
+            console.log(`Sending receipt to ${this.recipientEmail}`);
+        }
 
     }
 
