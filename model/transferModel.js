@@ -11,8 +11,11 @@ class Transfer {
         bankName,
         recipientEmail,
         recipientPhone,
-        status,
-        softcodeMessage = ''
+        accountId = '',
+        accountLabel = '',
+        userId = '',
+        currency = 'USD',
+        status
     }) {
 
         this.id = randomUUID();
@@ -33,9 +36,15 @@ class Transfer {
 
         this.recipientPhone = recipientPhone || '';
 
-        this.status = status || 'Processing';
+        this.accountId = accountId;
 
-        this.softcodeMessage = softcodeMessage;
+        this.accountLabel = accountLabel;
+
+        this.userId = userId;
+
+        this.currency = currency;
+
+        this.status = status || 'Processing';
 
         this.date = new Date().toLocaleDateString('en-US');
 

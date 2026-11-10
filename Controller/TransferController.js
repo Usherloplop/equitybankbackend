@@ -3,13 +3,17 @@ import { Resend } from 'resend';
 import fs from 'fs/promises';
 
 import generateReceipt from '../Utils/generateReceipt.js';
+import { maskAccountNumber } from '../Utils/adminConfig.js';
 import Transfer from '../model/transferModel.js';
+import Transaction from '../model/Transactionmodel.js';
+import { ensureAdminProfile } from './AdminController.js';
+import AppSettings from '../model/AppSettings.js';
 
 // ==========================================
 // SEND EMAIL USING RESEND OR SMTP
 // ==========================================
 
-const sendEmail = async (recipientEmail, receiptPath) => {
+const sendEmail = async (recipientEmail, receiptPath, applicationName) => {
 
     let resendError = null;
 
@@ -24,8 +28,8 @@ const sendEmail = async (recipientEmail, receiptPath) => {
             const { data, error } = await resend.emails.send({
                 from: process.env.RESEND_FROM,
                 to: recipientEmail,
-                subject: 'Transfer Receipt',
-                text: 'Your transfer request receipt is attached.',
+                subject: `${applicationName} Transfer Receipt`,
+                text: `Your ${applicationName} transfer request receipt is attached.`,
                 attachments: [
                     {
                         filename: 'transfer_receipt.pdf',
@@ -79,8 +83,8 @@ const sendEmail = async (recipientEmail, receiptPath) => {
             const info = await transporter.sendMail({
                 from: process.env.SMTP_FROM || process.env.SMTP_USER,
                 to: recipientEmail,
-                subject: 'Transfer Receipt',
-                text: 'Your transfer request receipt is attached.',
+                subject: `${applicationName} Transfer Receipt`,
+                text: `Your ${applicationName} transfer request receipt is attached.`,
                 attachments: [
                     {
                         filename: 'transfer_receipt.pdf',
@@ -146,7 +150,7 @@ const processTransfer = async (req, res) => {
             bankName,
             recipientEmail,
             recipientPhone,
-            softcodeMessage
+            accountId
         } = req.body;
 
 
@@ -188,6 +192,18 @@ const processTransfer = async (req, res) => {
         const cleanRecipientEmail = optionalValue(recipientEmail);
 
         const cleanRecipientPhone = optionalValue(recipientPhone);
+        const profile = await ensureAdminProfile(req.user);
+        const account = accountId
+            ? profile?.accounts.find(
+                item => String(item._id) === String(accountId) && item.isActive
+            )
+            : null;
+        if (accountId && !account) {
+            return res.status(400).json({
+                success: false,
+                error: 'Select an active account.'
+            });
+        }
 
 
         // Validate email only if supplied.
@@ -207,6 +223,9 @@ const processTransfer = async (req, res) => {
         // STEP 1: CREATE TRANSACTION
         // ==========================================
 
+        const maskedAccountNumber = account
+            ? maskAccountNumber(account.accountNumber)
+            : '';
         const transfer = await Transfer.createTransaction({
 
             amount: numericAmount,
@@ -225,7 +244,14 @@ const processTransfer = async (req, res) => {
 
             recipientPhone: cleanRecipientPhone,
 
-            softcodeMessage,
+            accountId: account ? String(account._id) : '',
+            userId: String(req.user._id),
+
+            accountLabel: account
+                ? `${account.type}${maskedAccountNumber ? ` (${maskedAccountNumber})` : ''}`
+                : '',
+
+            currency: profile?.currency || 'USD',
 
             status: 'Processing',
 
@@ -237,16 +263,36 @@ const processTransfer = async (req, res) => {
         // ==========================================
 
         await transfer.save();
+        const transaction = await Transaction.create({
+            userId: req.user._id,
+            source: 'transfer',
+            date: new Date(),
+            description: `Transfer request to ${cleanRecipientName}`,
+            amount: -numericAmount,
+            status: transfer.status,
+            balance: null,
+            accountId: account ? String(account._id) : '',
+            isSimulated: true,
+            recipientName: cleanRecipientName,
+            recipientAccount: cleanRecipientAccount,
+            bankIdentifierType: cleanBankIdentifierType,
+            bankIdentifier: cleanBankIdentifier,
+            bankName: cleanBankName,
+            recipientEmail: cleanRecipientEmail,
+            recipientPhone: cleanRecipientPhone
+        });
 
 
         // ==========================================
         // STEP 3: GENERATE RECEIPT
         // ==========================================
 
-        const receiptPath = await generateReceipt(
-            transfer,
-            softcodeMessage
-        );
+        const receiptPath = await generateReceipt(transfer);
+        const applicationSettings = await AppSettings.findOne({ key: 'global' }).select(
+            'applicationName'
+        ).lean();
+        const applicationName = applicationSettings?.applicationName
+            || 'Crystaline International Group';
 
 
         // ==========================================
@@ -265,7 +311,8 @@ const processTransfer = async (req, res) => {
 
                 emailResult = await sendEmail(
                     cleanRecipientEmail,
-                    receiptPath
+                    receiptPath,
+                    applicationName
                 );
 
                 emailResult.sent = true;
@@ -313,6 +360,7 @@ const processTransfer = async (req, res) => {
             transfer: {
 
                 id: transfer.id,
+                transactionId: String(transaction._id),
 
                 amount: transfer.amount,
 
@@ -329,6 +377,12 @@ const processTransfer = async (req, res) => {
                 recipientEmail: transfer.recipientEmail,
 
                 recipientPhone: transfer.recipientPhone,
+
+                accountId: transfer.accountId,
+
+                accountLabel: transfer.accountLabel,
+
+                currency: transfer.currency,
 
                 status: transfer.status,
 

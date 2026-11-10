@@ -9,6 +9,8 @@ import corsOptions from './corsConfig.js'; // Import the CORS configuration
 import transferRoutes from './Routes/transferRoutes.js';
 import softcodeRoutes from './Routes/softcodeRoutes.js'
 import addAdminTransactionRoutes from './Routes/addadmintransactionRoutes.js';
+import globalAdminRoutes from './Routes/globalAdminRoutes.js';
+import settingsRoutes from './Routes/settingsRoutes.js';
 
 
 
@@ -39,6 +41,8 @@ app.use('/api/transfer', transferRoutes);
 app.use('/api/softcode', softcodeRoutes);
 
 app.use('/api/addadmin', addAdminTransactionRoutes);
+app.use('/api/global-admin', globalAdminRoutes);
+app.use('/api/settings', settingsRoutes);
 
 
 // Error Handling Middleware

@@ -1,11 +1,29 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import AppSettings from '../model/AppSettings.js';
 
-const generateReceipt = (transfer, softcodeMessage = '') => {
+const CURRENCY_RECEIPT_LABELS = {
+    USD: '$',
+    GBP: '£',
+    EUR: '€',
+    NGN: 'NGN ',
+    CAD: 'CAD $',
+    AUD: 'AUD $'
+};
+
+const generateReceipt = async (transfer) => {
+    const settings = await AppSettings.findOne({ key: 'global' })
+        .select('applicationName')
+        .lean();
+    const applicationName = settings?.applicationName
+        || 'Crystaline International Group';
     return new Promise((resolve, reject) => {
         try {
-            const receiptsDir = path.join(process.cwd(), 'receipts');
+            const userFolder = /^[a-f\d]{24}$/i.test(String(transfer.userId || ''))
+                ? String(transfer.userId)
+                : 'legacy';
+            const receiptsDir = path.join(process.cwd(), 'receipts', userFolder);
 
             // Create receipts directory if it does not exist
             if (!fs.existsSync(receiptsDir)) {
@@ -37,6 +55,10 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
                 }
             );
 
+            const finishReceipt = () => {
+            const currency = transfer.currency || 'USD';
+            const currencyLabel = CURRENCY_RECEIPT_LABELS[currency] || `${currency} `;
+
             // Receipt Header
             doc
                 .fontSize(22)
@@ -50,7 +72,16 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
             doc
                 .fontSize(10)
                 .font('Helvetica')
-                .text('Transfer Document', {
+                .text(applicationName, {
+                    align: 'center'
+                });
+
+            doc.moveDown(0.5);
+
+            doc
+                .fontSize(9)
+                .font('Helvetica')
+                .text('Transfer request document — not proof of independently verified settlement.', {
                     align: 'center'
                 });
 
@@ -89,7 +120,15 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
                 .font('Helvetica-Bold')
                 .text('Amount: ', { continued: true })
                 .font('Helvetica')
-                .text(`$${formattedAmount}`);
+                .text(`${currencyLabel}${formattedAmount}`);
+
+            if (transfer.accountLabel) {
+                doc
+                    .font('Helvetica-Bold')
+                    .text('Source Account: ', { continued: true })
+                    .font('Helvetica')
+                    .text(transfer.accountLabel);
+            }
 
             // Recipient Name
             doc
@@ -174,26 +213,6 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
                 .font('Helvetica')
                 .text(transfer.status || 'Processing');
 
-            // Additional Transfer Information
-            if (softcodeMessage) {
-                doc.moveDown(1);
-
-                doc
-                    .fontSize(12)
-                    .font('Helvetica-Bold')
-                    .text('Additional Transfer Information');
-
-                doc.moveDown(0.5);
-
-                doc
-                    .fontSize(10)
-                    .font('Helvetica')
-                    .text(softcodeMessage, {
-                        width: 490,
-                        align: 'left'
-                    });
-            }
-
             doc.moveDown(2);
 
             // Important Disclaimer
@@ -210,7 +229,7 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
                 .fontSize(9)
                 .font('Helvetica')
                 .text(
-                    'This document confirms receipt of a transfer.',
+                    'This document confirms a transfer request and is not proof of independently verified settlement.',
                     {
                         align: 'center',
                         width: 490
@@ -222,7 +241,7 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
             // Footer
             doc
                 .fontSize(8)
-                .text('Transfer Receipt', {
+                .text(`${applicationName} — Transfer Receipt`, {
                     align: 'center'
                 });
 
@@ -235,6 +254,9 @@ const generateReceipt = (transfer, softcodeMessage = '') => {
             writeStream.on('error', (error) => {
                 reject(error);
             });
+            };
+
+            finishReceipt();
 
         } catch (error) {
             reject(error);
