@@ -1,0 +1,30 @@
+LEGACY_DATA_OWNER_USERNAME
+
+This setting identifies the existing user account that should receive
+unassigned records created before the application had separate user accounts.
+
+Leave the setting blank unless you have verified which existing username owns
+the old records:
+
+LEGACY_DATA_OWNER_USERNAME=
+
+If ownership is verified, enter that user's existing username after the equals
+sign. For example:
+
+LEGACY_DATA_OWNER_USERNAME=verified_username
+
+When that user next makes an authenticated request, the backend may associate
+eligible unassigned legacy records with that account. These can include the
+old profile, balance, transactions, transaction audit records, and Soft Code
+message. Records already assigned to another user are not reassigned.
+
+Important:
+
+- Do not use this setting to create a user or change a user's login name.
+- Do not guess which user owns the legacy records. If ownership is uncertain,
+  keep the value blank so the records stay unassigned and inaccessible.
+- Use the exact existing username. The comparison is case-insensitive.
+- This is a one-time ownership claim for the selected user; changing the
+  setting later does not transfer records already claimed by an account.
+- Keep this value in the backend deployment environment or a private local
+  .env file. Do not put real customer data or secrets in source control.

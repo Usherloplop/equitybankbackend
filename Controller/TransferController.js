@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import fs from 'fs/promises';
+import path from 'path';
+import mongoose from 'mongoose';
 
 import generateReceipt from '../Utils/generateReceipt.js';
 import { maskAccountNumber } from '../Utils/adminConfig.js';
@@ -138,6 +140,8 @@ const optionalValue = (value) => {
 // ==========================================
 
 const processTransfer = async (req, res) => {
+    let savedTransaction = null;
+    let receiptPath = null;
 
     try {
 
@@ -263,7 +267,7 @@ const processTransfer = async (req, res) => {
         // ==========================================
 
         await transfer.save();
-        const transaction = await Transaction.create({
+        savedTransaction = await Transaction.create({
             userId: req.user._id,
             source: 'transfer',
             date: new Date(),
@@ -287,7 +291,13 @@ const processTransfer = async (req, res) => {
         // STEP 3: GENERATE RECEIPT
         // ==========================================
 
-        const receiptPath = await generateReceipt(transfer);
+        const receiptData = {
+            ...transfer,
+            _id: savedTransaction._id,
+            userId: req.user._id,
+            createdAt: savedTransaction.createdAt
+        };
+        receiptPath = await generateReceipt(receiptData);
         const applicationSettings = await AppSettings.findOne({ key: 'global' }).select(
             'applicationName'
         ).lean();
@@ -360,7 +370,8 @@ const processTransfer = async (req, res) => {
             transfer: {
 
                 id: transfer.id,
-                transactionId: String(transaction._id),
+                transactionId: String(savedTransaction._id),
+                receiptUrl: `/transfer/receipts/${savedTransaction._id}`,
 
                 amount: transfer.amount,
 
@@ -395,6 +406,26 @@ const processTransfer = async (req, res) => {
     } catch (error) {
 
         console.error('Transfer processing error:', error);
+        if (savedTransaction) {
+            try {
+                await Transaction.deleteOne({
+                    _id: savedTransaction._id,
+                    userId: req.user._id,
+                    deletedAt: null
+                });
+            } catch (cleanupError) {
+                console.error('Failed to remove incomplete transfer request:', cleanupError);
+            }
+        }
+        if (receiptPath) {
+            try {
+                await fs.unlink(receiptPath);
+            } catch (cleanupError) {
+                if (cleanupError.code !== 'ENOENT') {
+                    console.error('Failed to remove incomplete transfer receipt:', cleanupError);
+                }
+            }
+        }
 
         return res.status(500).json({
 
@@ -409,5 +440,46 @@ const processTransfer = async (req, res) => {
     }
 
 };
+
+export async function downloadTransferReceipt(req, res) {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(400).json({ message: 'Invalid receipt identifier.' });
+    }
+
+    try {
+        const transaction = await Transaction.findOne({
+            _id: req.params.id,
+            userId: req.user._id,
+            deletedAt: null,
+            $or: [
+                { source: 'transfer' },
+                { source: { $exists: false }, recipientName: { $exists: true, $ne: '' } }
+            ]
+        }).select('_id userId');
+        if (!transaction) {
+            return res.status(404).json({ message: 'Transfer receipt not found.' });
+        }
+
+        const receiptPath = path.join(
+            process.cwd(),
+            'receipts',
+            String(req.user._id),
+            `receipt_${transaction._id}.pdf`
+        );
+        await fs.access(receiptPath);
+        return res.download(receiptPath, 'transfer-request-receipt.pdf', error => {
+            if (error && !res.headersSent) {
+                console.error('Failed to download transfer receipt:', error);
+                res.status(500).json({ message: 'Unable to download the transfer receipt.' });
+            }
+        });
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return res.status(404).json({ message: 'Transfer receipt is no longer available.' });
+        }
+        console.error('Failed to load transfer receipt:', error);
+        return res.status(500).json({ message: 'Unable to load the transfer receipt.' });
+    }
+}
 
 export { processTransfer };

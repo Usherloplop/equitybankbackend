@@ -65,7 +65,7 @@ class Transfer {
 
     save() {
 
-        console.log('Transaction saved:', this);
+        console.info('Transfer request prepared for persistent transaction recording.');
 
         return this;
 
