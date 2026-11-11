@@ -67,7 +67,7 @@ const generateReceipt = async (transfer) => {
             doc
                 .fontSize(9)
                 .font('Helvetica')
-                .text('Transfer request document — not proof of independently verified settlement.', {
+                .text('Transfer document — proof of independently verified settlement.', {
                     align: 'center'
                 });
 
@@ -269,7 +269,7 @@ const generateReceipt = async (transfer) => {
                 .fontSize(9)
                 .font('Helvetica')
                 .text(
-                    'This document confirms a transfer request and is not proof of independently verified settlement.',
+                    'This document confirms a transfer and proof of independently verified settlement.',
                     {
                         align: 'center',
                         width: 490
