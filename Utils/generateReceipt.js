@@ -236,7 +236,7 @@ const generateReceipt = async (transfer) => {
                     .fillColor('#263445')
                     .fontSize(9)
                     .font('Helvetica-Bold')
-                    .text('Soft Code Message', boxLeft + 10, boxTop + 8);
+                    .text('Transfer Note', boxLeft + 10, boxTop + 8);
                 doc
                     .font('Helvetica')
                     .text(message, boxLeft + 10, boxTop + 20, messageOptions);
