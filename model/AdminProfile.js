@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
-import { ACCOUNT_TYPES, NEW_USER_ACCOUNTS } from '../Utils/adminConfig.js';
+import {
+    ACCOUNT_TYPES,
+    NEW_USER_ACCOUNTS,
+    SUPPORTED_CURRENCIES
+} from '../Utils/adminConfig.js';
 
 const accountSchema = new mongoose.Schema({
     type: {
@@ -52,7 +56,7 @@ const adminProfileSchema = new mongoose.Schema({
     },
     currency: {
         type: String,
-        enum: ['USD', 'GBP', 'EUR', 'NGN', 'CAD', 'AUD'],
+        enum: Object.keys(SUPPORTED_CURRENCIES),
         default: 'USD'
     },
     accounts: {

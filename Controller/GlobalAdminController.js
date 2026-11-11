@@ -7,7 +7,7 @@ import Balance from '../model/Addadminbalance.js';
 import Transaction from '../model/Transactionmodel.js';
 import AppSettings from '../model/AppSettings.js';
 import AdminAudit from '../model/AdminAudit.js';
-import { NEW_USER_ACCOUNTS } from '../Utils/adminConfig.js';
+import { NEW_USER_ACCOUNTS, SUPPORTED_CURRENCIES } from '../Utils/adminConfig.js';
 
 const failedAdminAttempts = new Map();
 const AUTH_WINDOW_MS = 15 * 60 * 1000;
@@ -187,6 +187,7 @@ export async function getManagedUser(req, res) {
                 firstName: profile.firstName,
                 lastName: profile.lastName,
                 currency: profile.currency,
+                currencyInfo: SUPPORTED_CURRENCIES[profile.currency],
                 accounts: profile.accounts.map(account => ({
                     type: account.type,
                     accountNumber: account.accountNumber,

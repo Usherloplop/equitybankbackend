@@ -105,6 +105,7 @@ export async function getPublicProfile(req, res) {
             firstName: profile.firstName,
             lastName: profile.lastName,
             currency: profile.currency,
+            supportedCurrencies: SUPPORTED_CURRENCIES,
             accounts: profile.accounts
                 .filter(account => account.isActive)
                 .map(account => publicAccount(account, profile.currency))
@@ -118,7 +119,10 @@ export async function getPublicProfile(req, res) {
 export async function getAdminProfile(req, res) {
     try {
         const profile = await ensureAdminProfile(req.user);
-        return res.json(profile);
+        return res.json({
+            ...profile.toObject(),
+            supportedCurrencies: SUPPORTED_CURRENCIES
+        });
     } catch (error) {
         console.error('Failed to fetch admin profile:', error);
         return res.status(500).json({ message: 'Unable to load the admin profile.' });

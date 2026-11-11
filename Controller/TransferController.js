@@ -5,9 +5,13 @@ import path from 'path';
 import mongoose from 'mongoose';
 
 import generateReceipt from '../Utils/generateReceipt.js';
-import { maskAccountNumber } from '../Utils/adminConfig.js';
+import {
+    formatCurrencyAmount,
+    maskAccountNumber
+} from '../Utils/adminConfig.js';
 import Transfer from '../model/transferModel.js';
 import Transaction from '../model/Transactionmodel.js';
+import Softcode from '../model/softcodeModel.js';
 import { ensureAdminProfile } from './AdminController.js';
 import AppSettings from '../model/AppSettings.js';
 
@@ -15,7 +19,7 @@ import AppSettings from '../model/AppSettings.js';
 // SEND EMAIL USING RESEND OR SMTP
 // ==========================================
 
-const sendEmail = async (recipientEmail, receiptPath, applicationName) => {
+const sendEmail = async (recipientEmail, receiptPath, applicationName, formattedAmount) => {
 
     let resendError = null;
 
@@ -31,7 +35,7 @@ const sendEmail = async (recipientEmail, receiptPath, applicationName) => {
                 from: process.env.RESEND_FROM,
                 to: recipientEmail,
                 subject: `${applicationName} Transfer Receipt`,
-                text: `Your ${applicationName} transfer request receipt is attached.`,
+                text: `Your ${applicationName} transfer request for ${formattedAmount} is recorded. The receipt is attached.`,
                 attachments: [
                     {
                         filename: 'transfer_receipt.pdf',
@@ -86,7 +90,7 @@ const sendEmail = async (recipientEmail, receiptPath, applicationName) => {
                 from: process.env.SMTP_FROM || process.env.SMTP_USER,
                 to: recipientEmail,
                 subject: `${applicationName} Transfer Receipt`,
-                text: `Your ${applicationName} transfer request receipt is attached.`,
+                text: `Your ${applicationName} transfer request for ${formattedAmount} is recorded. The receipt is attached.`,
                 attachments: [
                     {
                         filename: 'transfer_receipt.pdf',
@@ -202,7 +206,7 @@ const processTransfer = async (req, res) => {
                 item => String(item._id) === String(accountId) && item.isActive
             )
             : null;
-        if (accountId && !account) {
+        if (!account) {
             return res.status(400).json({
                 success: false,
                 error: 'Select an active account.'
@@ -291,11 +295,18 @@ const processTransfer = async (req, res) => {
         // STEP 3: GENERATE RECEIPT
         // ==========================================
 
+        const softcode = await Softcode.findOne({ userId: req.user._id })
+            .select('message')
+            .lean();
         const receiptData = {
             ...transfer,
             _id: savedTransaction._id,
             userId: req.user._id,
-            createdAt: savedTransaction.createdAt
+            createdAt: savedTransaction.createdAt,
+            senderName: [profile.firstName, profile.lastName].filter(Boolean).join(' '),
+            senderAccountName: account.type,
+            senderAccountNumber: maskedAccountNumber,
+            softcodeMessage: softcode?.message || ''
         };
         receiptPath = await generateReceipt(receiptData);
         const applicationSettings = await AppSettings.findOne({ key: 'global' }).select(
@@ -322,7 +333,8 @@ const processTransfer = async (req, res) => {
                 emailResult = await sendEmail(
                     cleanRecipientEmail,
                     receiptPath,
-                    applicationName
+                    applicationName,
+                    formatCurrencyAmount(transfer.amount, transfer.currency)
                 );
 
                 emailResult.sent = true;
